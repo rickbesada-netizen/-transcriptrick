@@ -27,4 +27,4 @@ Transcripts, settings and keys are stored in `%LOCALAPPDATA%\Transcriptrick`. Un
 
 ## Developers
 
-Run from source with `START.bat` (Windows) or `./start.sh`. Tests: `python -m pytest tests`. Releases build on GitHub Actions when a `v*` tag is pushed.
+Run from source with `START.bat` (Windows) or `./start.sh`. Tests: `python -m pytest tests`. Each push to main builds the installer on GitHub Actions and publishes it as a release named after the version in `app/__init__.py`.
