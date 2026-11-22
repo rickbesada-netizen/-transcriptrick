@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transcriptrick</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231C1F5E'/%3E%3Crect x='6' y='18' width='20' height='7' fill='%23FFE34D'/%3E%3Cpath d='M7 8h18M16 8v17' fill='none' stroke='%23fff' stroke-width='3.6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#">Transcriptrick</a>
+  <form id="paste" class="paste" autocomplete="off">
+    <label class="sr" for="links">Links</label>
+    <textarea id="links" rows="1" spellcheck="false" placeholder="Paste a YouTube, Spotify, SoundCloud or other video link"></textarea>
+    <button id="go" class="primary" type="submit">Transcribe</button>
+    <button id="dl" class="quiet" type="button">Download</button>
+  </form>
+  <nav class="top-nav">
+    <a id="navDownloads" class="quiet navlink" href="#downloads">Downloads<span id="dlCount" class="count" hidden></span></a>
+    <button id="openSettings" class="quiet" type="button">Settings</button>
+  </nav>
+</header>
+<p id="pasteError" class="paste-error" role="alert" hidden></p>
+
+<main class="shell">
+  <aside class="rail" id="rail">
+    <div class="rail-search">
+      <label class="sr" for="find">Search your transcripts</label>
+      <input id="find" type="search" placeholder="Search your transcripts">
+    </div>
+    <div id="list" class="list"></div>
+  </aside>
+  <section class="view" id="view" tabindex="-1"></section>
+</main>
+
+<dialog id="pick" class="sheet">
+  <form method="dialog" id="pickForm">
+    <h2 id="pickTitle"></h2>
+    <div class="pick-format" id="pickFormat" hidden>
+      <div class="seg" role="group" aria-label="File type">
+        <button type="button" data-fmt="mp4" aria-pressed="true">MP4 video</button>
+        <button type="button" data-fmt="mp3" aria-pressed="false">MP3 audio</button>
+      </div>
+      <label id="qualityWrap">Quality
+        <select id="quality">
+          <option value="best">Best available</option><option value="2160">4K (2160p)</option>
+          <option value="1440">1440p</option><option value="1080">1080p</option><option value="720">720p</option>
+          <option value="480">480p</option><option value="360">360p</option>
+        </select>
+      </label>
+      <p class="note" id="saveTo"></p>
+    </div>
+    <div class="pick-tools">
+      <label><input type="checkbox" id="pickAll" checked> Select all</label>
+      <span id="pickCount"></span>
+    </div>
+    <div id="pickList" class="pick-list"></div>
+    <p id="pickErrors" class="warn" hidden></p>
+    <div class="sheet-foot">
+      <button type="button" class="quiet" id="pickCancel">Cancel</button>
+      <button type="submit" class="primary" id="pickGo"></button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settings" class="sheet wide">
+  <form method="dialog" id="settingsForm">
+    <h2>Settings</h2>
+    <fieldset>
+      <legend>AI summaries</legend>
+      <p class="note">A free Groq key covers summaries and fast transcription. <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer">Create one at Groq</a>.</p>
+      <div class="grid">
+        <label>Provider<select name="ai_provider" id="aiProvider"></select></label>
+        <label>Model<input name="ai_model" id="aiModel" list="modelList" placeholder=""><datalist id="modelList"></datalist></label>
+      </div>
+      <div class="grid" id="keys">
+        <label data-for="groq">Groq API key<input name="groq_key" type="password" autocomplete="off"></label>
+        <label data-for="anthropic">Claude API key<input name="anthropic_key" type="password" autocomplete="off"></label>
+        <label data-for="openai">OpenAI API key<input name="openai_key" type="password" autocomplete="off"></label>
+        <label data-for="gemini">Gemini API key<input name="gemini_key" type="password" autocomplete="off"></label>
+        <label data-for="openrouter">OpenRouter API key<input name="openrouter_key" type="password" autocomplete="off"></label>
+        <label data-for="ollama">Ollama address<input name="ollama_url"></label>
+      </div>
+      <div class="row">
+        <button type="button" class="quiet" id="testAI">Save and test</button>
+        <button type="button" class="quiet" id="loadModels">Load model list</button>
+        <span id="aiResult" class="note" role="status"></span>
+      </div>
+      <div class="grid">
+        <label>Summary language<input name="summary_language" placeholder="English"></label>
+        <label>Default summary<select name="default_style" id="defaultStyle"></select></label>
+      </div>
+      <label class="check"><input type="checkbox" name="auto_summary"> Summarise each transcript when it finishes</label>
+    </fieldset>
+    <fieldset>
+      <legend>Transcription</legend>
+      <div class="grid">
+        <label>Speech to text
+          <select name="transcriber">
+            <option value="auto">Groq if a key is saved, otherwise this PC</option>
+            <option value="local">This PC (free, slower)</option>
+            <option value="groq">Groq</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </label>
+        <label>Speech model on this PC
+          <select name="whisper_model">
+            <option value="tiny">Tiny, fastest</option>
+            <option value="base">Base, balanced</option>
+            <option value="small">Small, more accurate</option>
+            <option value="medium">Medium, slow on most PCs</option>
+            <option value="large-v3">Large, slowest</option>
+          </select>
+        </label>
+        <label>Spoken language<input name="language" placeholder="Detect automatically"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="prefer_captions"> Use YouTube captions when a video has them</label>
+    </fieldset>
+    <fieldset>
+      <legend>Downloads</legend>
+      <div class="grid">
+        <label>Save downloads to<input name="download_folder"></label>
+      </div>
+      <p class="note">Playlists get their own folder inside it.</p>
+    </fieldset>
+    <fieldset>
+      <legend>If a site blocks you</legend>
+      <div class="grid">
+        <label>Use my browser sign-in
+          <select name="cookies_browser">
+            <option value="">Off</option><option value="firefox">Firefox</option><option value="chrome">Chrome</option>
+            <option value="edge">Edge</option><option value="brave">Brave</option>
+          </select>
+        </label>
+        <label>Cookies file<input name="cookies_file" placeholder="C:\path\cookies.txt"></label>
+        <label>Proxy<input name="proxy" placeholder="http://user:pass@host:port"></label>
+        <label>Most items per playlist<input name="collection_limit" type="number" min="1" max="5000"></label>
+      </div>
+    </fieldset>
+    <div class="sheet-foot">
+      <button type="button" class="quiet" id="settingsCancel">Cancel</button>
+      <button type="submit" class="primary">Save settings</button>
+    </div>
+  </form>
+</dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

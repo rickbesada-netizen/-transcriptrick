@@ -1,0 +1,81 @@
+name: Build Windows app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install -r requirements.txt pyinstaller pytest
+
+      - name: Test
+        run: python -m pytest -q tests
+
+      - name: Package
+        run: pyinstaller --noconfirm transcriptrick.spec
+
+      - name: Self-test the packaged app
+        shell: pwsh
+        run: |
+          $p = Start-Process dist\Transcriptrick\Transcriptrick.exe -ArgumentList '--selftest', "$PWD\selftest.json" -Wait -PassThru
+          Get-Content selftest.json
+          if ($p.ExitCode -ne 0) { throw "Self-test failed" }
+
+      - name: Try a real video download (for information only)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $env:TRANSCRIPTRICK_DATA = "$env:RUNNER_TEMP\vdata"
+          python -c "import yt_dlp,sys; o={'outtmpl':sys.argv[1]+'/%(title)s.%(ext)s','format':'bv*[height<=360]+ba/b','merge_output_format':'mp4','js_runtimes':{'deno':{'path':__import__('deno').find_deno_bin()}},'ffmpeg_location':__import__('imageio_ffmpeg').get_ffmpeg_exe()}; yt_dlp.YoutubeDL(o).download(['https://www.youtube.com/watch?v=jNQXAC9IVRw'])" "$env:RUNNER_TEMP\dl"
+          Get-ChildItem "$env:RUNNER_TEMP\dl" -ErrorAction SilentlyContinue
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          if ($version -notmatch '^\d') { $version = "1.1.0" }
+          & $iscc "/DVersion=$version" packaging\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Installer build failed" }
+
+      - name: Install it silently and self-test the installed copy
+        shell: pwsh
+        run: |
+          Start-Process Output\Transcriptrick-Setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\Transcriptrick\Transcriptrick.exe"
+          if (-not (Test-Path $exe)) { throw "Not installed" }
+          $p = Start-Process $exe -ArgumentList '--selftest', "$PWD\installed.json" -Wait -PassThru
+          Get-Content installed.json
+          if ($p.ExitCode -ne 0) { throw "Installed app self-test failed" }
+          if (-not (Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Transcriptrick.lnk")) { throw "No Start menu shortcut" }
+          (Get-Item Output\Transcriptrick-Setup.exe).Length / 1MB
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Transcriptrick-Setup
+          path: Output/Transcriptrick-Setup.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Output/Transcriptrick-Setup.exe
+          make_latest: true
+          body: |
+            Download **Transcriptrick-Setup.exe** below and double-click it. No Python needed.
+            Transcripts and AI summaries from YouTube, Spotify and SoundCloud, plus MP4 and MP3 downloads of videos and playlists.
